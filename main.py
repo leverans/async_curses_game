@@ -67,20 +67,20 @@ def draw(canvas):
 
     max_y, max_x = canvas.getmaxyx()
 
-    # Сдвинем анимацию каждой звезды на случайное число циклов, чтобы все мигали вразнобой
-    # Кажется предполагалось не так, но я не совсем, понял что от меня ожидается
     star_coroutines = [
         blink(canvas, randint(1, max_y-2), randint(1, max_x-2), symbol=choice('+*.x'))
         # почему-то вываливается с ошибкой, если уменьшать на 1 - неясное
-        for _ in range(100)
+        for _ in range(200)
     ]
+    # Сдвинем анимацию каждой звезды на случайное число циклов, чтобы все мигали вразнобой
+    # Кажется предполагалось не так, но я не совсем понял, что от меня ожидается
     for coroutine in star_coroutines:
         for _ in range(randint(0, BLINK_LENGTH)):
             coroutine.send(None)
 
     # Объединяем звездные анимации с остальными
     coroutines = star_coroutines + [
-        fire(canvas, max_y-2, 250),
+        fire(canvas, max_y-2, max_x / 3),  # просто чтоб видно было отдельно от корабля
         spaceship_animation(canvas, max_y / 2 - 2, max_x / 2 - 2, SPACESHIP_FRAMES)
     ]
 
