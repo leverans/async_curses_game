@@ -4,7 +4,7 @@ import curses
 
 
 async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0):
-    """Display spaceship_animation of gun shot. Direction and speed can be specified."""
+    """Display fire of gun shot. Direction and speed can be specified."""
 
     row, column = start_row, start_column
 
