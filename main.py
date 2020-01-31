@@ -5,7 +5,7 @@ from random import randint, choice
 
 from fire_animation import fire
 from curses_tools import draw_frame, read_controls, get_frame_size
-from star_animation import blink
+from star_animation import blink, BLINK_LENGTH
 
 
 async def animate_spaceship(canvas, start_row, start_column, frames):
@@ -49,7 +49,8 @@ def draw(canvas):
     max_y, max_x = rows - 1, columns - 1  # настоящие предельные значения
 
     star_coroutines = [
-        blink(canvas, randint(1, max_y - 1), randint(1, max_x - 1), symbol=choice('+*.x'))
+        blink(canvas, randint(1, max_y - 1), randint(1, max_x - 1),
+              symbol=choice('+*.x'), animation_offset=randint(0, BLINK_LENGTH-1))
         # почему-то вываливается с ошибкой, если уменьшать на 1 - неясное
         for _ in range(200)
     ]

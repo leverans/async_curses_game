@@ -13,9 +13,10 @@ STAR_ANIMATION_STEPS = (
 BLINK_LENGTH = sum(step[0] for step in STAR_ANIMATION_STEPS)
 
 
-async def blink(canvas, row, column, symbol='*'):
+# c измененным комментарием по причинам выноса параметра смещения анимации стало логично, а то я сначала опешил :)
+async def blink(canvas, row, column, symbol='*', animation_offset=0):
     # задерживаем фазу звезды на случайное число кадров в пределах длины цикла анимации
-    for _ in range(randint(0, BLINK_LENGTH-1)):
+    for _ in range(animation_offset):
         await asyncio.sleep(0)
 
     while True:
