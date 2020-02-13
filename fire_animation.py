@@ -3,7 +3,9 @@ import asyncio
 import curses
 
 
-async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0):
+
+async def fire(canvas, start_row, start_column, obstacles, obstacles_in_last_collisions,
+               rows_speed=-0.3, columns_speed=0):
     """Display fire of gun shot. Direction and speed can be specified."""
 
     row, column = start_row, start_column
@@ -26,6 +28,11 @@ async def fire(canvas, start_row, start_column, rows_speed=-0.3, columns_speed=0
     curses.beep()
 
     while 0 < row < max_row and 0 < column < max_column:
+        for obstacle in obstacles:
+            if obstacle.has_collision(row, column):
+                obstacles.remove(obstacle)
+                obstacles_in_last_collisions.add(obstacle)
+                return
         canvas.addstr(round(row), round(column), symbol)
         await asyncio.sleep(0)
         canvas.addstr(round(row), round(column), ' ')

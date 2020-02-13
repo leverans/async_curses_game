@@ -6,6 +6,7 @@ import os
 
 from fire_animation import fire
 from curses_tools import draw_frame, read_controls, get_frame_size
+from obstacles import show_obstacles
 from physics import update_speed
 from space_garbage import fly_garbage
 from star_animation import blink, BLINK_LENGTH
@@ -17,9 +18,10 @@ coroutines = list()
 
 spaceship_frames = []
 current_spaceship_frame = 0
+obstacles = set()
+obstacles_in_last_collisions = set()
 
-
-async def animate_spaceship(canvas, start_row, start_column, frames):
+async def animate_spaceship(canvas, start_row, start_column, frames, obstacles, obstacles_in_last_collisions):
     current_frame = 0
     row, column = int(start_row), int(start_column)
     row_speed, column_speed = 0, 0
@@ -40,7 +42,10 @@ async def animate_spaceship(canvas, start_row, start_column, frames):
             column = old_column
 
         if space_pressed:
-            coroutines.append(fire(canvas, row, column+2))
+            coroutines.append(
+                fire(canvas, row, column+2,
+                     obstacles=obstacles, obstacles_in_last_collisions=obstacles_in_last_collisions)
+            )
             
         draw_frame(canvas, row, column, frames[current_frame])
         await asyncio.sleep(0)
@@ -54,7 +59,8 @@ async def fill_orbit_with_garbage(canvas, garbage_frames, garbage_probability=.0
         if random() <= garbage_probability:
             max_y, max_x = get_real_maxyx(canvas)
             coroutines.append(
-                fly_garbage(canvas, randint(1, max_x-3), choice(garbage_frames), speed=uniform(.1, 1))
+                fly_garbage(canvas, randint(1, max_x-3), choice(garbage_frames),
+                            obstacles=obstacles, speed=uniform(.1, 1))
             )
         await asyncio.sleep(0)
 
@@ -89,7 +95,9 @@ def draw(canvas):
     # Объединяем звездные анимации с остальными
     coroutines = star_coroutines + [
         #fire(canvas, max_y-1, max_x / 3),  # просто чтоб видно было отдельно от корабля
-        animate_spaceship(canvas, max_y / 2 - 2, max_x / 2 - 2, spaceship_frames),  # где-то примерно в центре
+        animate_spaceship(canvas, max_y / 2 - 2, max_x / 2 - 2, spaceship_frames,
+                          obstacles, obstacles_in_last_collisions),  # где-то примерно в центре
+        show_obstacles(canvas, obstacles),
         fill_orbit_with_garbage(canvas, garbage_frames)
     ]
 
