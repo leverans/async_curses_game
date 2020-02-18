@@ -4,22 +4,52 @@ import asyncio
 from random import randint, choice, random, uniform
 import os
 
+from explosion import explode
 from fire_animation import fire
 from curses_tools import draw_frame, read_controls, get_frame_size
+from game_scenario import PHRASES, get_garbage_delay_tics
 from obstacles import show_obstacles
 from physics import update_speed
 from space_garbage import fly_garbage
 from star_animation import blink, BLINK_LENGTH
-from utilities import get_real_maxyx
+from utilities import get_real_maxyx, sleep
 
 TICK_LENGTH = .1
+YEAR_LENGTH_IN_SECONDS = 1.5
+START_YEAR = 1957
+PLASMA_GUN_YEAR = 2020
+TICKS_IN_YEAR = int(YEAR_LENGTH_IN_SECONDS / TICK_LENGTH)
 
 coroutines = list()
 
 spaceship_frames = []
+gameover_banner = []
 current_spaceship_frame = 0
 obstacles = set()
 obstacles_in_last_collisions = set()
+
+current_year = START_YEAR
+current_message = ""
+
+
+# def get_years_passed(tics):
+#     return int(tics * TICK_LENGTH / 1.5)
+
+
+async def control_time(canvas):
+    global current_year, current_message
+
+    while True:
+        max_y, max_x = get_real_maxyx(canvas)
+        window = canvas.derwin(1, int(max_x / 2), max_y-1, max(1, int(max_x / 2 - 25)))
+        draw_frame(window, 0, 0, str(current_year))
+        current_message = PHRASES.get(current_year, None) or current_message
+        if current_message:
+            draw_frame(window, 0, 8, current_message)
+        await sleep(TICKS_IN_YEAR)
+        draw_frame(window, 0, 8, current_message, negative=True)
+        current_year += 1
+
 
 async def animate_spaceship(canvas, start_row, start_column, frames, obstacles, obstacles_in_last_collisions):
     current_frame = 0
@@ -41,7 +71,16 @@ async def animate_spaceship(canvas, start_row, start_column, frames, obstacles, 
         if column < 1 or column > max_column:
             column = old_column
 
-        if space_pressed:
+        for obstacle in obstacles:
+            if obstacle.has_collision(row, column, *get_frame_size(frames[0])):
+                obstacles.remove(obstacle)
+                obstacles_in_last_collisions.add(obstacle)
+                coroutines.append(
+                    show_gameover(canvas, gameover_banner)
+                )
+                return
+
+        if space_pressed and current_year >= PLASMA_GUN_YEAR:
             coroutines.append(
                 fire(canvas, row, column+2,
                      obstacles=obstacles, obstacles_in_last_collisions=obstacles_in_last_collisions)
@@ -54,23 +93,38 @@ async def animate_spaceship(canvas, start_row, start_column, frames, obstacles, 
         current_frame = (current_frame + 1) % len(frames)
 
 
-async def fill_orbit_with_garbage(canvas, garbage_frames, garbage_probability=.05):
+async def fill_orbit_with_garbage(canvas, garbage_frames):
     while True:
-        if random() <= garbage_probability:
+        garbage_delay = get_garbage_delay_tics(current_year)
+        if garbage_delay:
+            await sleep(garbage_delay)
             max_y, max_x = get_real_maxyx(canvas)
             coroutines.append(
                 fly_garbage(canvas, randint(1, max_x-3), choice(garbage_frames),
                             obstacles=obstacles, speed=uniform(.1, 1))
             )
+        else:
+            await sleep(TICKS_IN_YEAR)  # засыпаем на весь год, т.к. в этом году еще чисто
+
+
+
+async def show_gameover(canvas, banner):
+    while True:
+        max_y, max_x = get_real_maxyx(canvas)
+        height, width = get_frame_size(banner)
+        draw_frame(canvas, (max_y - height)/2, (max_x - width)/2, banner)
         await asyncio.sleep(0)
 
 
 def draw(canvas):
-    global coroutines, spaceship_frames
+    global coroutines, spaceship_frames, gameover_banner
     # Загружаем кадры анимации
     for i in (1, 2):
         with open(f"animation_frames/spaceship/rocket_frame_{i}.txt", "r") as frame_file:
             spaceship_frames.append(frame_file.read())
+
+    with open(f"animation_frames/game_over.txt", "r") as frame_file:
+        gameover_banner = frame_file.read()
 
     garbage_frames = []
     folder = "animation_frames/garbage"
@@ -79,8 +133,6 @@ def draw(canvas):
             garbage_frames.append(frame_file.read())
 
     # Настраиваем canvas
-    canvas.border()
-    canvas.refresh()
     curses.curs_set(False)
     canvas.nodelay(True)
 
@@ -94,15 +146,16 @@ def draw(canvas):
 
     # Объединяем звездные анимации с остальными
     coroutines = star_coroutines + [
-        #fire(canvas, max_y-1, max_x / 3),  # просто чтоб видно было отдельно от корабля
         animate_spaceship(canvas, max_y / 2 - 2, max_x / 2 - 2, spaceship_frames,
                           obstacles, obstacles_in_last_collisions),  # где-то примерно в центре
-        show_obstacles(canvas, obstacles),
-        fill_orbit_with_garbage(canvas, garbage_frames)
+        #show_obstacles(canvas, obstacles),
+        fill_orbit_with_garbage(canvas, garbage_frames),
+        control_time(canvas),
     ]
 
     # запускаем event loop
     while True:
+        canvas.border()
         for coroutine in coroutines.copy():
             try:
                 coroutine.send(None)
@@ -110,6 +163,12 @@ def draw(canvas):
                 coroutines.remove(coroutine)
         canvas.refresh()
         time.sleep(TICK_LENGTH)
+
+        for obstacle in obstacles_in_last_collisions:
+            coroutines.append(
+                explode(canvas, obstacle.row + obstacle.rows_size/2, obstacle.column + obstacle.columns_size/2)
+            )
+        obstacles_in_last_collisions.clear()
 
 
 if __name__ == '__main__':
