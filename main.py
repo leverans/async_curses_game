@@ -14,9 +14,9 @@ from star_animation import blink, BLINK_LENGTH
 from utilities import get_real_maxyx, sleep
 
 TICK_LENGTH = .1
-YEAR_LENGTH_IN_SECONDS = 10.5
-START_YEAR = 1980
-PLASMA_GUN_YEAR = 1980
+YEAR_LENGTH_IN_SECONDS = 1.5
+START_YEAR = 1957
+PLASMA_GUN_YEAR = 2020
 TICKS_IN_YEAR = int(YEAR_LENGTH_IN_SECONDS / TICK_LENGTH)
 
 coroutines = list()
