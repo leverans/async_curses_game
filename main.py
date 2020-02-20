@@ -8,16 +8,15 @@ from explosion import explode
 from fire_animation import fire
 from curses_tools import draw_frame, read_controls, get_frame_size
 from game_scenario import PHRASES, get_garbage_delay_tics
-from obstacles import show_obstacles
 from physics import update_speed
 from space_garbage import fly_garbage
 from star_animation import blink, BLINK_LENGTH
 from utilities import get_real_maxyx, sleep
 
 TICK_LENGTH = .1
-YEAR_LENGTH_IN_SECONDS = 1.5
-START_YEAR = 1957
-PLASMA_GUN_YEAR = 2020
+YEAR_LENGTH_IN_SECONDS = 10.5
+START_YEAR = 1980
+PLASMA_GUN_YEAR = 1980
 TICKS_IN_YEAR = int(YEAR_LENGTH_IN_SECONDS / TICK_LENGTH)
 
 coroutines = list()
@@ -30,10 +29,6 @@ obstacles_in_last_collisions = set()
 
 current_year = START_YEAR
 current_message = ""
-
-
-# def get_years_passed(tics):
-#     return int(tics * TICK_LENGTH / 1.5)
 
 
 async def control_time(canvas):
@@ -51,8 +46,8 @@ async def control_time(canvas):
         current_year += 1
 
 
-async def animate_spaceship(canvas, start_row, start_column, frames, obstacles, obstacles_in_last_collisions):
-    current_frame = 0
+async def run_spaceship(canvas, start_row, start_column, frames, obstacles, obstacles_in_last_collisions):
+    global current_spaceship_frame
     row, column = int(start_row), int(start_column)
     row_speed, column_speed = 0, 0
     rows, columns = canvas.getmaxyx()
@@ -85,12 +80,19 @@ async def animate_spaceship(canvas, start_row, start_column, frames, obstacles, 
                 fire(canvas, row, column+2,
                      obstacles=obstacles, obstacles_in_last_collisions=obstacles_in_last_collisions)
             )
-            
+
+        current_frame = current_spaceship_frame
         draw_frame(canvas, row, column, frames[current_frame])
         await asyncio.sleep(0)
 
         draw_frame(canvas, row, column, frames[current_frame], negative=True)
-        current_frame = (current_frame + 1) % len(frames)
+
+
+async def animate_spaceship(frames):
+    global current_spaceship_frame
+    while True:
+        current_spaceship_frame = (current_spaceship_frame + 1) % len(frames)
+        await sleep(2)
 
 
 async def fill_orbit_with_garbage(canvas, garbage_frames):
@@ -107,13 +109,22 @@ async def fill_orbit_with_garbage(canvas, garbage_frames):
             await sleep(TICKS_IN_YEAR)  # засыпаем на весь год, т.к. в этом году еще чисто
 
 
-
 async def show_gameover(canvas, banner):
     while True:
         max_y, max_x = get_real_maxyx(canvas)
         height, width = get_frame_size(banner)
         draw_frame(canvas, (max_y - height)/2, (max_x - width)/2, banner)
         await asyncio.sleep(0)
+
+
+async def explode_collided_garbage(canvas, obstacles_to_explode):
+    while True:
+        for obstacle in obstacles_to_explode:
+            coroutines.append(
+                explode(canvas, obstacle.row + obstacle.rows_size / 2, obstacle.column + obstacle.columns_size / 2)
+            )
+        obstacles_to_explode.clear()
+        await sleep(1)
 
 
 def draw(canvas):
@@ -146,10 +157,11 @@ def draw(canvas):
 
     # Объединяем звездные анимации с остальными
     coroutines = star_coroutines + [
-        animate_spaceship(canvas, max_y / 2 - 2, max_x / 2 - 2, spaceship_frames,
+        run_spaceship(canvas, max_y / 2 - 2, max_x / 2 - 2, spaceship_frames,
                           obstacles, obstacles_in_last_collisions),  # где-то примерно в центре
-        #show_obstacles(canvas, obstacles),
+        animate_spaceship(spaceship_frames),
         fill_orbit_with_garbage(canvas, garbage_frames),
+        explode_collided_garbage(canvas, obstacles_in_last_collisions),
         control_time(canvas),
     ]
 
@@ -163,12 +175,6 @@ def draw(canvas):
                 coroutines.remove(coroutine)
         canvas.refresh()
         time.sleep(TICK_LENGTH)
-
-        for obstacle in obstacles_in_last_collisions:
-            coroutines.append(
-                explode(canvas, obstacle.row + obstacle.rows_size/2, obstacle.column + obstacle.columns_size/2)
-            )
-        obstacles_in_last_collisions.clear()
 
 
 if __name__ == '__main__':
