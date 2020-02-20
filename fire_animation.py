@@ -3,7 +3,8 @@ import asyncio
 import curses
 
 
-
+# не очень понимаю как правильно обходится с глобалками между модулями (потому что всю жизнь избегал),
+# поэтому решил передавать в параметрах по возможности
 async def fire(canvas, start_row, start_column, obstacles, obstacles_in_last_collisions,
                rows_speed=-0.3, columns_speed=0):
     """Display fire of gun shot. Direction and speed can be specified."""
@@ -38,4 +39,3 @@ async def fire(canvas, start_row, start_column, obstacles, obstacles_in_last_col
         canvas.addstr(round(row), round(column), ' ')
         row += rows_speed
         column += columns_speed
-
