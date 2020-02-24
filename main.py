@@ -15,8 +15,8 @@ from utilities import get_real_maxyx, sleep
 
 TICK_LENGTH = .1
 YEAR_LENGTH_IN_SECONDS = 1.5
-START_YEAR = 1957
-PLASMA_GUN_YEAR = 2020
+START_YEAR = 1970
+PLASMA_GUN_YEAR = 1970
 TICKS_IN_YEAR = int(YEAR_LENGTH_IN_SECONDS / TICK_LENGTH)
 
 coroutines = list()
@@ -68,7 +68,6 @@ async def run_spaceship(canvas, start_row, start_column, frames, obstacles, obst
 
         for obstacle in obstacles:
             if obstacle.has_collision(row, column, *get_frame_size(frames[0])):
-                obstacles.remove(obstacle)
                 obstacles_in_last_collisions.add(obstacle)
                 coroutines.append(
                     show_gameover(canvas, gameover_banner)
@@ -78,7 +77,8 @@ async def run_spaceship(canvas, start_row, start_column, frames, obstacles, obst
         if space_pressed and current_year >= PLASMA_GUN_YEAR:
             coroutines.append(
                 fire(canvas, row, column+2,
-                     obstacles=obstacles, obstacles_in_last_collisions=obstacles_in_last_collisions)
+                     obstacles=obstacles, obstacles_in_last_collisions=obstacles_in_last_collisions,
+                     coroutines=coroutines)
             )
 
         current_frame = current_spaceship_frame
@@ -103,7 +103,8 @@ async def fill_orbit_with_garbage(canvas, garbage_frames):
             max_y, max_x = get_real_maxyx(canvas)
             coroutines.append(
                 fly_garbage(canvas, randint(1, max_x-3), choice(garbage_frames),
-                            obstacles=obstacles, speed=uniform(.1, 1))
+                            obstacles=obstacles, obstacles_in_last_collisions=obstacles_in_last_collisions,
+                            speed=uniform(.1, 1))
             )
         else:
             await sleep(TICKS_IN_YEAR)  # засыпаем на весь год, т.к. в этом году еще чисто
@@ -157,11 +158,11 @@ def draw(canvas):
 
     # Объединяем звездные анимации с остальными
     coroutines = star_coroutines + [
-        run_spaceship(canvas, max_y / 2 - 2, max_x / 2 - 2, spaceship_frames,
-                          obstacles, obstacles_in_last_collisions),  # где-то примерно в центре
+        run_spaceship(canvas, max_y / 2 - 2, max_x / 2 - 2, spaceship_frames,  # где-то примерно в центре
+                      obstacles, obstacles_in_last_collisions),
         animate_spaceship(spaceship_frames),
         fill_orbit_with_garbage(canvas, garbage_frames),
-        explode_collided_garbage(canvas, obstacles_in_last_collisions),
+        #explode_collided_garbage(canvas, obstacles_in_last_collisions),
         control_time(canvas),
     ]
 
